@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-
-=======
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
@@ -344,7 +341,7 @@ if __name__ == "__main__":
         filename="lj_2D_trajectory.xyz",
     )
 
-    # Plot kinetic, potential and total energies
+    # Plot kinetic, potential and total energies in one plot
     energies_to_plot = [
         (kinetic_energies, "Kinetic Energy"),
         (potential_energies, "Potential Energy"),
@@ -353,4 +350,3 @@ if __name__ == "__main__":
     plot(time_steps, energies_to_plot, label="Energy", filename="lj_2D_all_energies.png", is_multiple=True)
     # Plot total energy separately
     plot(time_steps, total_energies, label="Total Energy", filename="lj_2D_total_energy.png", is_multiple=False)
->>>>>>> issue-1

@@ -341,7 +341,7 @@ if __name__ == "__main__":
         filename="lj_2D_trajectory.xyz",
     )
 
-    # Plot kinetic, potential and total energies
+    # Plot kinetic, potential and total energies in one plot
     energies_to_plot = [
         (kinetic_energies, "Kinetic Energy"),
         (potential_energies, "Potential Energy"),

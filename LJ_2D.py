@@ -156,7 +156,7 @@ def compute_kinetic_total_energy(velocities, potential_energy):
     total_energy = kinetic_energy + potential_energy
     return kinetic_energy, total_energy
 
-def minimize_system(n_particles, density, dt, filename, max_steps=100000, tolerance=1e-8, desired_temperature=293, sigma=1, epsilon=1, rcutoff=2.5, use_pbc=False):
+def minimize_system(n_particles, density, dt, filename, max_steps=100000, tolerance=1e-5, desired_temperature=293, sigma=1, epsilon=1, rcutoff=2.5, use_pbc=False):
     """Minimize the potential energy of the system."""
     # Initialize the system
     box_size, velocities, positions = initialize_system(n_particles, density, desired_temperature)
@@ -173,8 +173,12 @@ def minimize_system(n_particles, density, dt, filename, max_steps=100000, tolera
     potential_energies, time_steps = [potential_energy], [0]
     # Run the minimization loop
     for step in range(max_steps):
-        new_positions = positions + dt * forces
+        # Normalized steepest descent step
+        max_force_component = np.max(np.abs(forces))
+        normalized_forces = forces / max_force_component
+        new_positions = positions + dt * normalized_forces
         new_positions = apply_boundary_conditions(new_positions, box_size, use_pbc)
+
         new_forces, new_potential_energy = compute_forces(new_positions, box_size, sigma, epsilon, rcutoff, use_pbc)
 
         time_steps.append(step * dt)
@@ -263,8 +267,9 @@ if __name__ == "__main__":
         print("Performing energy minimization...")
         # Run energy minimization
         filename = "minimization_trajectory.xyz"
+        max_steps = steps
         time_steps, potential_energies = minimize_system(
-            n_particles, density, dt, filename, max_steps=100000, tolerance=1e-8, 
+            n_particles, density, dt, filename, max_steps, tolerance=1e-8, 
             desired_temperature=293, sigma=1, epsilon=1, rcutoff=2.5, use_pbc=False)
         print("Energy minimization complete.")
         plot(time_steps, potential_energies, "Potential Energy", "minimization_energy.png")

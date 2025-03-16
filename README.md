@@ -19,7 +19,7 @@ python <file_name> --steps <number_of_steps> --dt <time_step> --density <density
 
 #### Optional Arguments:
 You can include the following optional arguments to further customize the simulation:
-python <file_name> --steps <number_of_steps> --dt <time_step> --density <density> --n_particles <number_of_particles> --use_pbc --temperature <temperature_in_K> --sigma <LJ_sigma> --epsilon <LJ_epsilon> --rcutoff <LJ_cutoff_radius>
+python <file_name> --steps <number_of_steps> --dt <time_step> --density <density> --n_particles <number_of_particles> --use_pbc --temperature <temperature_in_K> --sigma <LJ_sigma> --epsilon <LJ_epsilon> --rcutoff <LJ_cutoff_radius> --minimize_only
 
 
 #### Example Commands:
@@ -45,6 +45,13 @@ python <file_name> --steps <number_of_steps> --dt <time_step> --density <density
 
     This runs the simulation with **periodic boundary conditions**, and specifies additional Lennard-Jones parameters, temperature, and cutoff radius.
 
+- **Example 4: Minimize Energy**:
+    ```
+    python3 LJ_2D.py --steps 10000 --dt 0.0001 --density 0.8 --n_particles 20 --minimize_only
+    ```
+
+    This runs the **energy minimization**, and specifies nr of steps, step length, density, and numer of particles.
+
 ---
 
 ### Explanation of Arguments:
@@ -58,12 +65,14 @@ python <file_name> --steps <number_of_steps> --dt <time_step> --density <density
 - `--sigma <LJ_sigma>`: (Optional) The Lennard-Jones sigma parameter (distance where the potential is zero).
 - `--epsilon <LJ_epsilon>`: (Optional) The Lennard-Jones epsilon parameter (depth of the potential well).
 - `--rcutoff <LJ_cutoff_radius>`: (Optional) The cutoff radius for the Lennard-Jones potential.
+- `--minimize_only`: (Optional) Flag to run **energy minimization**. If omitted, the regular **Lennard-Jones simulation** will be run by default.
 
 ---
 
 ### Notes:
 1. The `--use_pbc` flag enables **periodic boundary conditions**, causing particles that move out of the simulation box to reappear on the opposite side. If this flag is not provided, **hard wall boundary conditions** will be used by default (particles reflect off the walls of the box).
 2. Including `--temperature`, `--sigma`, `--epsilon`, and `--rcutoff` arguments will override default values and influence the simulation's behavior.
+3. The `--minimize_only` flag runs only **energy minimization**.If this flag is not provided, just a regular **Lennard-Jones simulation** will be run by default.
 
 ---
 

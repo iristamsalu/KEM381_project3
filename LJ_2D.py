@@ -2,6 +2,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import sys
+from dataclasses import dataclass
+
+@dataclass
+class configuration:
+    steps: int
+    dt: float
+    density: float
+    n_particles: int
+    use_pbc: bool
+    temperature: float
+    sigma: float
+    epsilon: float
+    rcutoff: float
+    minimize_only: bool
 
 def parse_args():
     """Parse and validate the command line arguments."""
@@ -42,7 +56,7 @@ def parse_args():
     if args.rcutoff <= 0:
         print("Error: Cutoff radius must be greater than 0.")
         sys.exit(1)
-    return (
+    return configuration(
         args.steps,
         args.dt,
         args.density,
@@ -55,234 +69,240 @@ def parse_args():
         args.minimize_only
     )
 
-def initialize_system(n_particles, density, desired_temperature):
-    """Initialize the system: box size, particle positions, and velocities."""
-    box_size = np.sqrt(n_particles / density)
-    positions = create_lattice(box_size, n_particles)
-    velocities = np.random.uniform(-0.01, 0.01, size=(n_particles, 2))
-    com_velocity = np.mean(velocities, axis=0)
-    velocities -= com_velocity
+class simulation:
+    def __init__(self, config: configuration):
+        """Initialize the simulation with a configuration object."""
+        self.config = config
+        self.n_particles = config.n_particles
+        self.density = config.density
+        self.dt = config.dt
+        self.steps = config.steps
+        self.use_pbc = config.use_pbc
+        self.temperature = config.temperature
+        self.sigma = config.sigma
+        self.epsilon = config.epsilon
+        self.rcutoff = config.rcutoff
+        self.minimize_only = config.minimize_only
 
-    kinetic_energy = 0.5 * np.sum(velocities**2)
-    desired_kinetic_energy = 0.5 * n_particles * 2 * desired_temperature
-    scaling_factor = np.sqrt(desired_kinetic_energy / kinetic_energy)
-    velocities *= scaling_factor
+        self.box_size = self.compute_box_size()
+        self.positions = self.create_lattice()
+        self.velocities = self.initialize_velocities()
+        self.forces, self.potential_energy = self.compute_forces()
+        self.kinetic_energy = 0.5 * np.sum(self.velocities ** 2)
+        self.total_energy = self.kinetic_energy + self.potential_energy
+        self.trajectory_file = "trajectory.xyz"
 
-    return box_size, velocities, positions
+    def compute_box_size(self):
+        """Compute box size"""
+        return (self.n_particles / self.density) ** (1 / 2)
 
-def create_lattice(box_size, n_particles):
-    """Create a square lattice of particles with slight random displacements."""
-    particles_per_side = int(np.ceil(np.sqrt(n_particles)))
-    spacing = box_size / particles_per_side
-    positions = []
+    def create_lattice(self):
+        """Create an initial square lattice of particles with slight random displacements."""
+        particles_per_side = int(np.ceil(np.sqrt(self.n_particles)))
+        spacing = self.box_size / particles_per_side
+        positions = []
+        for i in range(particles_per_side):
+            for j in range(particles_per_side):
+                if len(positions) < self.n_particles:
+                    small_noise = np.random.uniform(-0.05, 0.05, size=2) * spacing
+                    positions.append([(i + 0.5) * spacing + small_noise[0], (j + 0.5) * spacing + small_noise[1]])
+        return np.array(positions)
 
-    for i in range(particles_per_side):
-        for j in range(particles_per_side):
-            if len(positions) < n_particles:
-                small_noise = np.random.uniform(-0.05, 0.05, size=2) * spacing
-                positions.append([(i + 0.5) * spacing + small_noise[0], (j + 0.5) * spacing + small_noise[1]])
+    def initialize_velocities(self):
+        """Generate initial velocities"""
+        velocities = np.random.uniform(-0.01, 0.01, size=(self.n_particles, 2))
+        velocities -= np.mean(velocities, axis=0)
+        # Adjust velocities according to the desired temperature 
+        kinetic_energy = 0.5 * np.sum(velocities**2)
+        desired_kinetic_energy = 0.5 * self.n_particles * 2 * self.temperature
+        scaling = np.sqrt(desired_kinetic_energy / kinetic_energy)
+        velocities *= scaling
+        return velocities
 
-    return np.array(positions)
+    def compute_lj_potential(self, r):
+        """Calculate the Lennard-Jones potential with cutoff."""
+        if r >= self.rcutoff:
+            return 0.0
+        sr6 = (self.sigma / r)**6
+        sr12 = sr6**2
+        return 4 * self.epsilon * (sr12 - sr6)
 
-def compute_lj_potential(r, sigma, epsilon, rcutoff):
-    """Calculate the Lennard-Jones potential with cutoff (NO SHIFT)."""
-    if r >= rcutoff:
-        return 0.0
-    sr6 = (sigma / r)**6
-    sr12 = sr6**2
-    return 4 * epsilon * (sr12 - sr6)
+    def compute_lj_force(self, r):
+        """Compute the Lennard-Jones force with cutoff."""
+        if r >= self.rcutoff:
+            return 0.0
+        sr6 = (self.sigma / r)**6
+        sr12 = sr6**2
+        return 24 * self.epsilon * (2 * sr12 - sr6) / r
 
-def compute_lj_force(r, sigma, epsilon, rcutoff):
-    """Compute the Lennard-Jones force with cutoff (NO SHIFT)."""
-    if r >= rcutoff:
-        return 0.0
-    sr6 = (sigma / r)**6
-    sr12 = sr6**2
-    return 24 * epsilon * (2 * sr12 - sr6) / r
+    def compute_forces(self):
+        """Compute forces and potential energy between all particles."""
+        forces = np.zeros_like(self.positions)
+        potential_energy = 0.0
 
-def compute_forces(positions, box_size, sigma, epsilon, rcutoff, use_pbc):
-    """Compute forces and potential energy between all particles."""
-    forces = np.zeros_like(positions)
-    potential_energy = 0.0
+        for i in range(len(self.positions)):
+            for j in range(i + 1, len(self.positions)):
+                r_vec = self.positions[j] - self.positions[i]
+                if self.use_pbc:
+                    r_vec -= self.box_size * np.round(r_vec / self.box_size)
 
-    for i in range(len(positions)):
-        for j in range(i + 1, len(positions)):
-            r_vec = positions[j] - positions[i]
+                r = np.linalg.norm(r_vec)
+                if 0 < r < self.rcutoff:  # Corrected condition: r > 0
+                    lj_potential = self.compute_lj_potential(r)
+                    lj_force = self.compute_lj_force(r)
+                    potential_energy += lj_potential
 
-            if use_pbc:
-                r_vec -= box_size * np.round(r_vec / box_size)
+                    force_vector = lj_force * r_vec / r
+                    forces[i] -= force_vector
+                    forces[j] += force_vector
+        return forces, potential_energy
 
-            r = np.linalg.norm(r_vec)
-            if 0 < r < rcutoff:  # Corrected condition: r > 0
-                lj_potential = compute_lj_potential(r, sigma, epsilon, rcutoff)
-                lj_force = compute_lj_force(r, sigma, epsilon, rcutoff)
+    def run_leapfrog_step(self):
+        """Update positions and velocities using the Leapfrog algorithm."""
+        self.positions += self.velocities * self.dt + 0.5 * self.forces * self.dt**2
+        self.positions = self.apply_boundary_conditions(self.positions)
 
-                potential_energy += lj_potential
-
-                force_vector = lj_force * r_vec / r
-                forces[i] -= force_vector
-                forces[j] += force_vector
-
-    return forces, potential_energy
-
-def run_leapfrog_step(positions, velocities, forces, dt, box_size, use_pbc, sigma, epsilon, rcutoff):
-    """Update positions and velocities using the Leapfrog algorithm."""
-    positions += velocities * dt + 0.5 * forces * dt**2
-    positions = apply_boundary_conditions(positions, box_size, use_pbc)
-    new_forces, potential_energy = compute_forces(positions, box_size, sigma, epsilon, rcutoff, use_pbc)
-    velocities += 0.5 * (forces + new_forces) * dt
-    kinetic_energy, total_energy = compute_kinetic_total_energy(velocities, potential_energy)
-
-    return positions, velocities, new_forces, potential_energy, kinetic_energy, total_energy
-
-def apply_boundary_conditions(positions, box_size, use_pbc):
-    """Apply boundary conditions to particle positions."""
-    if use_pbc:
-        positions = np.mod(positions, box_size)
-    else:
-        # Hard wall: particles bounce off the walls
-        positions = np.where(positions < 0, -positions, positions)
-        positions = np.where(positions > box_size, 2 * box_size - positions, positions)
-
-        # Keep repeating until everything is in bounds (in case it overshoots more than once)
-        while np.any(positions < 0) or np.any(positions > box_size):
-            positions = np.where(positions < 0, -positions, positions)
-            positions = np.where(positions > box_size, 2 * box_size - positions, positions)
-    return positions
-
-def compute_kinetic_total_energy(velocities, potential_energy):
-    """Calculate the kinetic and total energy."""
-    kinetic_energy = 0.5 * np.sum(velocities**2)
-    total_energy = kinetic_energy + potential_energy
-    return kinetic_energy, total_energy
-
-def minimize_system(n_particles, density, dt, filename, max_steps=100000, tolerance=1e-5, desired_temperature=293, sigma=1, epsilon=1, rcutoff=2.5, use_pbc=False):
-    """Minimize the potential energy of the system."""
-    # Initialize the system
-    box_size, velocities, positions = initialize_system(n_particles, density, desired_temperature)
-    # Set initial velocities to 0
-    velocities = np.zeros_like(positions)
-    # Clean up .xyz file
-    with open(filename, "w") as f: pass
-    # Write initial positions
-    save_xyz(positions, 0, filename)
-
-    # Compute initial forces
-    forces, potential_energy = compute_forces(positions, box_size, sigma, epsilon, rcutoff, use_pbc)
-    # Initialize potential energy and time steps lists
-    potential_energies, time_steps = [potential_energy], [0]
-    # Run the minimization loop
-    for step in range(max_steps):
-        # Normalized steepest descent step
-        max_force_component = np.max(np.abs(forces))
-        normalized_forces = forces / max_force_component
-        new_positions = positions + dt * normalized_forces
-        new_positions = apply_boundary_conditions(new_positions, box_size, use_pbc)
-
-        new_forces, new_potential_energy = compute_forces(new_positions, box_size, sigma, epsilon, rcutoff, use_pbc)
-
-        time_steps.append(step * dt)
-        potential_energies.append(new_potential_energy)
-        save_xyz(new_positions, step + 1, filename)
-
-        if step % 100 == 0:
-            print(f"Step: {step:10d} | " f"Potential Energy: {potential_energy:12.9f} | ")
-
-        # Calculate gradient change and check convergence
-        if np.linalg.norm(forces) < tolerance:
-            print(f"Converged due to force norm in {step + 1} steps.")
-            return time_steps, potential_energies
+        new_forces, potential_energy = self.compute_forces()
+        self.velocities += 0.5 * (self.forces + new_forces) * self.dt
         
-        positions = new_positions
-        forces = new_forces
-        potential_energy = new_potential_energy
-    print("Energy minimization did not converge.")
-    return time_steps, potential_energies
+        kinetic_energy = 0.5 * np.sum(self.velocities ** 2)
+        total_energy = kinetic_energy + potential_energy
 
-def save_xyz(positions, step, filename):
-    """Save particle positions to a .xyz file."""
-    with open(filename, "a") as f:
-        f.write(f"{len(positions)}\n")
-        f.write(f"Step {step}\n")
-        for i, pos in enumerate(positions, start=1):
-            f.write(f"X{i} {pos[0]} {pos[1]} 0.0\n")
+        self.forces = new_forces
+        return kinetic_energy, potential_energy, total_energy
 
-def plot(time_steps, energies, label, filename, is_multiple=False):
-    """Plot energy over time."""
-    plt.figure()
-    if is_multiple:
-        for energy, label in energies:
-            plt.plot(time_steps, energy, label=label)
-        plt.legend()
-    else:
-        plt.plot(time_steps, energies, label=label)
-    plt.xlabel("Time")
-    plt.ylabel(label)
-    plt.title(f"{label} Over Time")
-    plt.savefig(filename)
-    plt.clf()
+    def apply_boundary_conditions(self, positions):
+        """Apply boundary conditions to particle positions."""
+        if self.use_pbc:
+            positions = np.mod(positions, self.box_size)
+        else:
+            # Hard wall: particles bounce off the walls
+            positions = np.where(positions < 0, -positions, positions)
+            positions = np.where(positions > self.box_size, 2 * self.box_size - positions, positions)
 
-def simulate(n_particles, density, dt, steps, use_pbc, desired_temperature, sigma, epsilon, rcutoff, filename, minimize_only):
-    """Run the simulation."""
-    # Initialize the system
-    box_size, velocities, positions = initialize_system(n_particles, density, desired_temperature)
-    forces, potential_energy = compute_forces(positions, box_size, sigma, epsilon, rcutoff, use_pbc)
-    kinetic_energy, total_energy = compute_kinetic_total_energy(velocities, potential_energy)
+            # Keep repeating until everything is in bounds (in case it overshoots more than once)
+            while np.any(positions < 0) or np.any(positions > self.box_size):
+                positions = np.where(positions < 0, -positions, positions)
+                positions = np.where(positions > self.box_size, 2 * self.box_size - positions, positions)
+        return positions
 
-    # Initialize energy and timestep lists
-    kinetic_energies, potential_energies, total_energies = [kinetic_energy], [potential_energy], [total_energy]
-    time_steps = [0]
+    def save_xyz(self, step):
+        """Save particle positions to a .xyz file."""
+        with open(self.trajectory_file, "a") as f:
+            f.write(f"{len(self.positions)}\n")
+            f.write(f"Step {step}\n")
+            for i, pos in enumerate(self.positions, start=1):
+                f.write(f"X{i} {pos[0]} {pos[1]} 0.0\n")
 
-    # Clean the .xyz file and write timestep 0
-    with open(filename, "w") as f: pass
-    save_xyz(positions, 0, filename)
+    def simulate_LJ(self):
+        """Run the simulation."""
+        # Initialize energy and timestep lists
+        kinetic_energies, potential_energies, total_energies = [self.kinetic_energy], [self.potential_energy], [self.total_energy]
+        time_steps = [0]
 
-    # Loop over leap-frog timesteps
-    for step in range(steps):
-        positions, velocities, forces, potential_energy, kinetic_energy, total_energy = run_leapfrog_step(
-            positions, velocities, forces, dt, box_size, use_pbc, sigma, epsilon, rcutoff
-        )
-        save_xyz(positions, step + 1, filename)
+        # Clean the .xyz file and write timestep 0
+        with open(self.trajectory_file, "w") as f: pass
+        self.save_xyz(0)
 
-        # Append energies to their respective lists
-        kinetic_energies.append(kinetic_energy)
-        total_energies.append(total_energy)
-        potential_energies.append(potential_energy)
-        time_steps.append(step * dt)
+        # Loop over leap-frog timesteps
+        for step in range(self.steps):
+            kinetic_energy, potential_energy, total_energy = self.run_leapfrog_step()
+            # Store energies
+            kinetic_energies.append(kinetic_energy)
+            total_energies.append(total_energy)
+            potential_energies.append(potential_energy)
+            time_steps.append(step * self.dt)
+            # Write to trajectory file
+            self.save_xyz(step + 1)
 
-        if step % 100 == 0:
-            print(
-                f"Step: {step:10d} | "
-                f"Total Energy: {total_energy:12.2f} | "
-                f"Potential Energy: {potential_energy:12.2f} | "
-                f"Kinetic Energy: {kinetic_energy:12.2f}"
-            )
-    return time_steps, kinetic_energies, potential_energies, total_energies
+            if step % 100 == 0:
+                print(
+                    f"Step: {step:10d} | "
+                    f"Total Energy: {total_energy:12.2f} | "
+                    f"Potential Energy: {potential_energy:12.2f} | "
+                    f"Kinetic Energy: {kinetic_energy:12.2f}"
+                )
+        return time_steps, kinetic_energies, potential_energies, total_energies
+
+    def minimize_energy(self):
+        """Minimize the potential energy of the system."""
+        # Set velocities to 0
+        self.velocities = np.zeros_like(self.positions)
+        # Clean up .xyz file
+        with open(self.trajectory_file, "w") as f: pass
+        # Write initial positions
+        self.save_xyz(0)
+
+        # Compute initial forces
+        forces, potential_energy = self.compute_forces()
+        # Initialize potential energy and time steps lists
+        potential_energies, time_steps = [potential_energy], [0]
+        # Run the minimization loop
+        for step in range(self.steps):
+            # Normalized steepest descent step
+            max_force_component = np.max(np.abs(forces))
+            normalized_forces = forces / max_force_component
+            new_positions = self.positions + self.dt * normalized_forces
+            new_positions = self.apply_boundary_conditions(new_positions)
+
+            new_forces, new_potential_energy = self.compute_forces()
+
+            time_steps.append(step * self.dt)
+            potential_energies.append(new_potential_energy)
+            self.save_xyz(step + 1)
+
+            if step % 100 == 0:
+                print(f"Step: {step:10d} | " f"Potential Energy: {potential_energy:12.9f} | ")
+
+            # Calculate gradient change and check convergence
+            if np.linalg.norm(forces) < 1e-5:  # convergence criterion
+                print(f"Converged due to force norm in {step + 1} steps.")
+                return time_steps, potential_energies
+            
+            self.positions = new_positions
+            forces = new_forces
+            potential_energy = new_potential_energy
+        print("Energy minimization did not converge.")
+        return time_steps, potential_energies
+
+
+    def plot(self, time_steps, energies, label, filename, is_multiple=False):
+        """Plot energy over time."""
+        plt.figure()
+        if is_multiple:
+            for energy, label in energies:
+                plt.plot(time_steps, energy, label=label)
+            plt.legend()
+        else:
+            plt.plot(time_steps, energies, label=label)
+        plt.xlabel("Time")
+        plt.ylabel(label)
+        plt.xlim(0, self.steps*self.dt)
+        plt.title(f"{label} Over Time")
+        plt.savefig(filename)
+        plt.clf()
 
 if __name__ == "__main__":
-    # Parse and validate command line input
-    steps, dt, density, n_particles, use_pbc, temperature, sigma, epsilon, rcutoff, minimize_only = parse_args()
+    # Parse command-line arguments and create a config object
+    config = parse_args()
+    # Initialize the simulation with the configuration object
+    sim = simulation(config)
 
-    if minimize_only:
+    if config.minimize_only:
         print("Performing energy minimization...")
         # Run energy minimization
-        filename = "minimization_trajectory.xyz"
-        max_steps = steps
-        time_steps, potential_energies = minimize_system(
-            n_particles, density, dt, filename, max_steps, tolerance=1e-8, 
-            desired_temperature=293, sigma=1, epsilon=1, rcutoff=2.5, use_pbc=False)
+        time_steps, potential_energies = sim.minimize_energy()
         print("Energy minimization complete.")
-        plot(time_steps, potential_energies, "Potential Energy", "minimization_energy.png")
+        # Plot the potential energy change
+        sim.plot(time_steps, potential_energies, "Potential Energy", "minimization.png")
 
     else:
         print("Performing Lennard-Jones simulation...")
-        filename = "lj_trajectory.xyz" if not use_pbc else "lj_trajectory_PBC.xyz"
         # Run Lennard-Jones simulation
-        time_steps, kinetic_energies, potential_energies, total_energies = simulate(
-            n_particles, density, dt, steps, use_pbc, temperature,
-            sigma, epsilon, rcutoff, filename, minimize_only=False
-        )
+        time_steps, kinetic_energies, potential_energies, total_energies = sim.simulate_LJ()
         print("Lennard-Jones simulation complete.")
-        plot(time_steps, [(kinetic_energies, "Kinetic Energy"), (potential_energies, "Potential Energy"), (total_energies, "Total Energy")],
-             "Energy", "lj_2D_simulation_energy.png", is_multiple=True)
-        
+        # Plot kinetic, potential and total energy
+        sim.plot(time_steps, [(kinetic_energies, "Kinetic Energy"), 
+                             (potential_energies, "Potential Energy"), 
+                             (total_energies, "Total Energy")],
+                 "Energy", "lj_2D_simulation_energy.png", is_multiple=True)

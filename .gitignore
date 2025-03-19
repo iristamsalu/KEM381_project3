@@ -1,0 +1,14 @@
+# Python bytecode
+*.pyc
+*.pyo
+
+# Virtual environment directories
+venv/
+.env/
+
+# IDE directories
+.vscode/
+.idea/
+
+# Logs
+*.log

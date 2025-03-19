@@ -26,18 +26,14 @@ class Simulation:
         self.velocities = self.initialize_velocities()
         
         # Initialize forces and potential energy
-        self.forces, self.potential_energy = self.initialize_forces()
+        if self.use_lca:
+            self.forces, self.potential_energy = compute_forces_lca(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
+        else:
+            self.forces, self.potential_energy = compute_forces_naive(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
 
         self.kinetic_energy = 0.5 * np.sum(self.velocities ** 2)
         self.total_energy = self.kinetic_energy + self.potential_energy
         self.trajectory_file = f"{config.dimensions}D_trajectory.xyz"
-
-    def initialize_forces(self):
-        """Helper function to initialize forces and potential energy."""
-        if self.use_lca:
-            return compute_forces_lca(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
-        else:
-            return compute_forces_naive(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
 
     def compute_box_size(self):
         """Compute box size."""
@@ -46,18 +42,18 @@ class Simulation:
         else:
             return (self.n_particles / self.density) ** (1 / 2)  # Box size in 2D
 
-    def create_lattice(self, dimensions=2):
+    def create_lattice(self):
         """Create a lattice of particles (2D or 3D) with slight random displacements."""
         # Determine the number of particles per side based on the dimensions
-        n_side = int(np.ceil(self.n_particles ** (1 / dimensions)))
+        n_side = int(np.ceil(self.n_particles ** (1 / self.dimensions)))
         spacing = self.box_size / n_side
         positions = []
-        for indices in np.ndindex(*([n_side] * dimensions)):  # Iterate over grid indices
+        for indices in np.ndindex(*([n_side] * self.dimensions)):  # Iterate over grid indices
             if len(positions) < self.n_particles:
                 # Create the position based on the current dimension
                 position = [(i + 0.5) * spacing for i in indices]
                 # Add slight random noise considering dimensions
-                noise = np.random.uniform(-0.05, 0.05, size=dimensions) * spacing
+                noise = np.random.uniform(-0.05, 0.05, size=self.dimensions) * spacing
                 position = np.array(position) + noise
                 positions.append(position)
         return np.array(positions)
@@ -76,26 +72,31 @@ class Simulation:
         velocities *= scaling
         return velocities
 
-    def run_leapfrog_step(self):
-        """Update positions and velocities using the Leapfrog algorithm."""
-        # First update positions with the current forces
-        self.positions += self.velocities * self.dt + 0.5 * self.forces * self.dt**2
+    def velocity_verlet_step(self):
+        """Perform one step of Velocity Verlet integration."""
+        # 1. Update velocities by half a step
+        self.velocities += 0.5 * self.forces * self.dt
+
+        # 2. Update positions
+        self.positions += self.velocities * self.dt
         self.positions = self.apply_boundary_conditions(self.positions)
 
-        # Compute new forces based on updated positions
-        new_forces, potential_energy = self.initialize_forces()
+        # 3. Compute new forces
+        if self.use_lca:
+            new_forces, self.potential_energy = compute_forces_lca(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
+        else:
+            new_forces, self.potential_energy = compute_forces_naive(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
 
-        # Update velocities with the new forces
-        self.velocities += 0.5 * (self.forces + new_forces) * self.dt
-        
-        # Update kinetic energy and total energy
+        # 4. Update velocities by another half step
+        self.velocities += 0.5 * new_forces * self.dt
+
+        # Compute kinetic energy and total energy
         kinetic_energy = 0.5 * np.sum(self.velocities ** 2)
-        total_energy = kinetic_energy + potential_energy
+        total_energy = kinetic_energy + self.potential_energy
 
-        # Store the updated forces
-        self.forces = new_forces
-
-        return kinetic_energy, potential_energy, total_energy
+        # Update forces
+        self.forces = new_forces # Correctly update forces
+        return kinetic_energy, self.potential_energy, total_energy
 
     def apply_boundary_conditions(self, positions):
         """Apply hard wall or periodic boundary conditions in 2D or 3D."""
@@ -126,7 +127,7 @@ class Simulation:
 
         # Simulation loop
         for step in range(self.steps):
-            kinetic_energy, potential_energy, total_energy = self.run_leapfrog_step()
+            kinetic_energy, potential_energy, total_energy = self.velocity_verlet_step()
 
             # Save data for plotting
             time_steps.append(step * self.dt)
@@ -175,7 +176,6 @@ class Simulation:
             normalized_forces = forces / max_force_component
             new_positions = self.positions + self.dt * normalized_forces
             new_positions = self.apply_boundary_conditions(new_positions)
-
             # Compute new forces based on new positions
             if self.use_lca:
                 forces, new_potential_energy = compute_forces_lca(new_positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
@@ -190,9 +190,15 @@ class Simulation:
             if step % 100 == 0:
                 print(f"Step: {step:10d} | Potential Energy: {new_potential_energy:12.9f}")
 
-            # Check for convergence based on force magnitude
-            if np.linalg.norm(forces) < 1e-5:  # convergence criterion
-                print(f"Converged due to force norm in {step + 1} steps.")
+            # Check for convergence based on force and energy
+            force_norm = np.linalg.norm(forces)
+            energy_change = np.abs(new_potential_energy - self.potential_energy)
+            # Define convergence thresholds
+            force_threshold = 1e-6
+            energy_threshold = 1e-6
+            # Convergence check
+            if force_norm < force_threshold and energy_change < energy_threshold:
+                print(f"Converged due to force norm and energy change in {step + 1} steps.")
                 return time_steps, potential_energies
 
             # Update positions for the next iteration

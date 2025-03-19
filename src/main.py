@@ -9,6 +9,9 @@ if __name__ == "__main__":
     # Initialize the simulation with the configuration object
     sim = Simulation(config)
 
+    # Indicate which dimension (2D or 3D) is being used
+    print(f"Running simulation in {config.dimensions}D...")
+
     if config.minimize_only:
         if config.use_lca:
             print("Performing energy minimization with linked cell algorithm...")

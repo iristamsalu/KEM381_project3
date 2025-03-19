@@ -16,10 +16,13 @@ def plot_energy(time_steps, energies, label, filename, is_multiple=False):
     plt.savefig(filename)
     plt.clf()
 
-def save_xyz(positions, trajectory_file, step):
+def save_xyz(positions, filename, step):
     """Save particle positions to a .xyz file."""
-    with open(trajectory_file, "a") as f:
+    with open(filename, "a") as f:
         f.write(f"{len(positions)}\n")
         f.write(f"Step {step}\n")
         for i, pos in enumerate(positions, start=1):
-            f.write(f"X{i} {pos[0]} {pos[1]} 0.0\n")
+            if len(pos) == 2:
+                f.write(f"X{i} {pos[0]} {pos[1]} 0.0\n")  # 2D system
+            elif len(pos) == 3:
+                f.write(f"X{i} {pos[0]} {pos[1]} {pos[2]}\n")  # 3D system

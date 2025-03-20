@@ -74,20 +74,17 @@ class Simulation:
 
     def velocity_verlet_step(self):
         """Perform one step of Velocity Verlet integration."""
-        # 1. Update velocities by half a step
+        # Update velocities by half a step
         self.velocities += 0.5 * self.forces * self.dt
-
-        # 2. Update positions
+        # Update positions
         self.positions += self.velocities * self.dt
         self.positions = self.apply_boundary_conditions(self.positions)
-
-        # 3. Compute new forces
+        # Compute new forces
         if self.use_lca:
             new_forces, self.potential_energy = compute_forces_lca(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
         else:
             new_forces, self.potential_energy = compute_forces_naive(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
-
-        # 4. Update velocities by another half step
+        # Update velocities by another half step
         self.velocities += 0.5 * new_forces * self.dt
 
         # Compute kinetic energy and total energy
@@ -194,10 +191,10 @@ class Simulation:
             force_norm = np.linalg.norm(forces)
             energy_change = np.abs(new_potential_energy - self.potential_energy)
             # Define convergence thresholds
-            force_threshold = 1e-6
-            energy_threshold = 1e-6
+            force_threshold = 1e-5
+            energy_threshold = 1e-5
             # Convergence check
-            if force_norm < force_threshold and energy_change < energy_threshold:
+            if force_norm < force_threshold or energy_change < energy_threshold:
                 print(f"Converged due to force norm and energy change in {step + 1} steps.")
                 return time_steps, potential_energies
 

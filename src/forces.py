@@ -1,5 +1,6 @@
 import numpy as np
 from collections import defaultdict
+from itertools import product
 
 def compute_lj_force(r, sigma, epsilon, rcutoff):
     """Compute Lennard-Jones force magnitude with cutoff."""
@@ -47,44 +48,41 @@ def compute_forces_naive(positions, box_size, rcutoff, sigma, epsilon, use_pbc=T
 
 def build_linked_cells(positions, box_size, rcutoff):
     """Assign particles to cells for linked-cell algorithm (supports 2D or 3D)."""
-    dim = positions.shape[1]
     n_cells = int(np.floor(box_size / rcutoff))
     n_cells = max(1, n_cells)  # Prevent 0 division
     cell_size = box_size / n_cells
-
+    # Vectorized cell assignment
+    cell_indices = np.floor(positions / cell_size).astype(int) % n_cells
+    # More efficient cell assignment using numpy's unique and digitize
     cells = defaultdict(list)
-    particle_cells = []
-
-    for idx, pos in enumerate(positions):
-        cell_idx = tuple((np.floor(pos / cell_size).astype(int)) % n_cells)
-        cells[cell_idx].append(idx)
-        particle_cells.append(cell_idx)
-
-    return cells, n_cells, cell_size
+    for i, cell_idx in enumerate(map(tuple, cell_indices)): #avoid np.vectorize which is slow
+        cells[cell_idx].append(i)
+    return cells, n_cells
 
 def compute_forces_lca(positions, box_size, rcutoff, sigma, epsilon, use_pbc=True):
     """Optimized Linked Cell Algorithm for force computation in 2D or 3D."""
-    n = len(positions)
     dim = positions.shape[1]
     forces = np.zeros_like(positions)
     potential_energy = 0.0
     rcut2 = rcutoff ** 2
-
-    cells, n_cells, cell_size = build_linked_cells(positions, box_size, rcutoff)
-
+    cells, n_cells = build_linked_cells(positions, box_size, rcutoff)
     # Generate neighbor cell offsets (including self)
     shifts = [-1, 0, 1]
-    neighbor_offsets = [np.array(shift) for shift in np.array(np.meshgrid(*([shifts] * dim))).T.reshape(-1, dim)]
-
+    # Use itertools.product for efficiency in generating neighbor offsets
+    from itertools import product
+    neighbor_offsets = [np.array(shift) for shift in product(shifts, repeat=dim)]
+    # Directly iterate over the cell items
     for cell_idx, particle_indices in cells.items():
         for i in particle_indices:
+            pos_i = positions[i]  # Cache position i
             for offset in neighbor_offsets:
                 neighbor_idx = tuple((np.array(cell_idx) + offset) % n_cells)
-                for j in cells.get(neighbor_idx, []):
+                neighbor_indices = cells.get(neighbor_idx, [])
+                for j in neighbor_indices:
                     if j > i:
-                        rij = positions[i] - positions[j]
+                        rij = pos_i - positions[j]  # Use cached position i
                         if use_pbc:
-                            rij -= box_size * np.round(rij / box_size)
+                            rij = rij - box_size * np.round(rij / box_size)  # More efficient PBC
                         r2 = np.dot(rij, rij)
                         if r2 < rcut2 and r2 > 1e-12:
                             r = np.sqrt(r2)

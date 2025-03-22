@@ -15,6 +15,8 @@ class Configuration:
     epsilon: float
     rcutoff: float
     minimize_only: bool
+    minimize: bool
+    minimization_steps: int
     use_lca: bool
 
 def validate_positive(value, name):
@@ -43,6 +45,8 @@ def parse_args():
     parser.add_argument("--epsilon", type=float, default=1.0, help="Lennard-Jones epsilon parameter")
     parser.add_argument("--rcutoff", type=float, default=2.5, help="Lennard-Jones cutoff radius")
     parser.add_argument("--minimize_only", action="store_true", help="Only minimize energy")
+    parser.add_argument("--minimize", action="store_true", help="Perform LJ simulation and then minimize energy")
+    parser.add_argument("--minimization_steps", type=int, default=10000, help="Number of minimization steps")
     parser.add_argument("--use_lca", action="store_true", help="Use Linked Cell Algorithm (LCA)")
 
     args = parser.parse_args()
@@ -56,6 +60,7 @@ def parse_args():
     validate_positive(args.sigma, "Sigma")
     validate_positive(args.epsilon, "Epsilon")
     validate_positive(args.rcutoff, "Cutoff radius")
+    validate_positive(args.minimization_steps, "Number of minimization steps")
     validate_dimension(args.dimensions)
 
     # Check for rcutoff and sigma consistency
@@ -74,5 +79,7 @@ def parse_args():
         args.epsilon,
         args.rcutoff,
         args.minimize_only,
+        args.minimize,
+        args.minimization_steps,
         args.use_lca
     )

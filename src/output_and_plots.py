@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import os
+from datetime import datetime
 
 # Create an output directory if it doesn't exist yet
 OUTPUT_DIR = "output"
@@ -57,9 +58,13 @@ def track_comp_time(start_time, end_time, steps, config, output_file="computatio
     total_simulation_time = end_time - start_time
     avg_time_per_step = total_simulation_time / steps
 
+    # Get the current date and time
+    date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Format: YYYY-MM-DD HH:MM:SS
+
     # Append compact computational time data and simulation parameters to the output file
     with open(os.path.join(OUTPUT_DIR, output_file), "a") as f:
-        f.write(f"time: {total_simulation_time:.6f}s, avg/step: {avg_time_per_step:.6f}s, "
+        f.write(f"{date}, "
+                f"time: {total_simulation_time:.6f}s, avg/step: {avg_time_per_step:.6f}s, "
                 f"dim: {config.dimensions}D, "
                 f"N: {config.n_particles}, density: {config.density}, steps: {config.steps}, " 
                 f"dt: {config.dt}, PBC: {config.use_pbc}, LCA: {config.use_lca}, "

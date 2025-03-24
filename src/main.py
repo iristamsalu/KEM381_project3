@@ -1,6 +1,8 @@
 from config import parse_args
 from simulation import Simulation
 from output_and_plots import plot_energy, save_energy_data
+import numpy as np
+import os
 
 if __name__ == "__main__":
     # Parse command-line arguments and create a config object
@@ -40,9 +42,12 @@ if __name__ == "__main__":
     if config.minimize_only or config.minimize:
         print("Performing energy minimization...")
         time_steps_min, potential_energies_min = sim.minimize_energy()
-
         # Extend simulation timesteps and energies with minimization timesteps and energies
-        all_time_steps.extend([t + all_time_steps[-1] + config.dt for t in time_steps_min])
+        if config.minimize_only:
+            all_time_steps.extend(time_steps_min)
+        else:
+            all_time_steps.extend([t + all_time_steps[-1] + config.dt for t in time_steps_min])
+
         all_kinetic_energies.extend([0] * len(time_steps_min))
         all_potential_energies.extend(potential_energies_min)
         all_total_energies.extend(potential_energies_min) # Here potential energy = total energy
@@ -51,8 +56,7 @@ if __name__ == "__main__":
     plot_title = f"Dimensions: {config.dimensions}D | " \
                  f"Particles: {config.n_particles} | " \
                  f"Density: {config.density} | " \
-                 f"Timesteps: {len(all_time_steps)} | " \
+                 f"Timesteps: {len(all_time_steps)-1} | " \
                  f"Timestep Length: {config.dt}"
-    plot_energy(all_time_steps, all_kinetic_energies, all_potential_energies, all_total_energies, plot_title)
-    # Save the simulation data to .dat files
+    plot_energy(np.array(all_time_steps).flatten(), all_kinetic_energies, all_potential_energies, all_total_energies, plot_title)
     save_energy_data(all_time_steps, all_kinetic_energies, all_potential_energies, all_total_energies)

@@ -2,7 +2,6 @@ from config import parse_args
 from simulation import Simulation
 from output_and_plots import plot_energy, save_energy_data
 import numpy as np
-import os
 
 if __name__ == "__main__":
     # Parse command-line arguments and create a config object
@@ -50,7 +49,8 @@ if __name__ == "__main__":
 
         all_kinetic_energies.extend([0] * len(time_steps_min))
         all_potential_energies.extend(potential_energies_min)
-        all_total_energies.extend(potential_energies_min) # Here potential energy = total energy
+        # Here potential energy = total energy
+        all_total_energies.extend(potential_energies_min)
 
     # Plot the evaluation of energies troughout the simulation
     plot_title = f"Dimensions: {config.dimensions}D | " \

@@ -1,5 +1,7 @@
 import argparse
 import sys
+import os
+from datetime import datetime
 from dataclasses import dataclass
 
 @dataclass
@@ -34,6 +36,8 @@ def validate_dimension(value):
 def parse_args():
     """Parse and validate the command line arguments."""
     parser = argparse.ArgumentParser(description="Lennard-Jones simulation")
+    
+    # Arguments for the simulation
     parser.add_argument("--dimensions", type=int, choices=[2, 3], default=2, help="Dimension of simulation (2 or 3)")
     parser.add_argument("--steps", type=int, default=5000, help="Number of simulation steps")
     parser.add_argument("--dt", type=float, default=0.0001, help="Timestep")
@@ -67,6 +71,10 @@ def parse_args():
     if args.rcutoff <= 2.0 * args.sigma:
         print("Warning: Cutoff radius (rcutoff) should typically be greater than 2 * sigma for good accuracy.")
 
+    # Automatically set output_dir if not provided
+    output_dir = "output"
+    os.makedirs(output_dir, exist_ok=True)  # Ensure directory exists
+
     return Configuration(
         args.dimensions,
         args.steps,
@@ -81,5 +89,5 @@ def parse_args():
         args.minimize_only,
         args.minimize,
         args.minimization_steps,
-        args.use_lca
+        args.use_lca,
     )

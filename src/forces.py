@@ -27,7 +27,7 @@ def compute_lj_potential(r, sigma, epsilon, rcutoff):
 
     return potential - shift
 
-def compute_forces_naive(positions, box_size, rcutoff, sigma, epsilon, use_pbc=True):
+def compute_forces_naive(positions, box_size, rcutoff, sigma, epsilon, use_pbc):
     """Naive O(N^2) force calculation."""
     n = len(positions)
     forces = np.zeros_like(positions)
@@ -106,7 +106,7 @@ def build_linked_cells(positions, box_size, rcutoff):
 
     return head, lscl, lc_dim
 
-def compute_forces_lca(positions, box_size, rcutoff, sigma, epsilon, use_pbc=True):
+def compute_forces_lca(positions, box_size, rcutoff, sigma, epsilon, use_pbc):
     """
     Compute Lennard-Jones forces and potential energy using the linked-cell algorithm (2D or 3D).
     

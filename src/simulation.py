@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import os
 from config import Configuration
 from forces import compute_forces_lca, compute_forces_naive
 from output_and_plots import save_xyz, track_comp_time
@@ -45,7 +46,7 @@ class Simulation:
         # Calculate total energy
         self.total_energy = self.kinetic_energy + self.potential_energy
         # .xyz file name based on the dimensions
-        self.trajectory_file = f"{config.dimensions}D_trajectory.xyz"
+        self.trajectory_file = os.path.join("output", f"{config.dimensions}D_trajectory.xyz")
 
     def compute_box_size(self):
         """Compute box size based on nr of particles and particle density."""
@@ -132,10 +133,10 @@ class Simulation:
         potential_energies = []
         total_energies = []
 
-        # Clean/initialize the .xyz trajectory file
+        # Ensure the directory for the file exists
+        os.makedirs(os.path.dirname(self.trajectory_file), exist_ok=True)
         with open(self.trajectory_file, "w") as f:
-            pass
-        # Save initial positions to .xyz at step 0
+            pass  # Open the file in write mode to clear its contents
         save_xyz(self.positions, self.trajectory_file, 0)
 
         # Start tracking computational time
@@ -175,16 +176,23 @@ class Simulation:
         """Minimize the potential energy of the system."""
         # Set velocities to 0
         self.velocities = np.zeros_like(self.positions)
+        # Cancel PBC
+        self.use_pbc = False
 
-        # Clear .xyz file only if minimizing without running LJ simulation first
+        os.makedirs(os.path.dirname(self.trajectory_file), exist_ok=True)
+        # If minimizing only, clear the .xyz file (writing mode "w")
         if self.minimize_only:
             with open(self.trajectory_file, "w") as f:
-                pass
-        # Save positions to .xyz
+                pass  # Open the file in write mode to clear its contents
+        else:
+            with open(self.trajectory_file, "a") as f:
+                pass  # Continue writing, don't clear the file
+
+        # Save initial positions to .xyz at step 0
         save_xyz(self.positions, self.trajectory_file, 0)
 
         # Compute initial forces with naive or LCA algorithm
-        forces, initial_potential_energy = self.compute_forces(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, False)
+        forces, initial_potential_energy = self.compute_forces(self.positions, self.box_size, self.rcutoff, self.sigma, self.epsilon, self.use_pbc)
 
         # Initialize potential energy and time steps lists
         time_steps = [0]

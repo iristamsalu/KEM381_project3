@@ -1,7 +1,6 @@
 import argparse
 import sys
 import os
-from datetime import datetime
 from dataclasses import dataclass
 
 @dataclass
@@ -20,6 +19,7 @@ class Configuration:
     minimize: bool
     minimization_steps: int
     use_lca: bool
+    use_jit: bool
 
 def validate_positive(value, name):
     """Check if a value is positive."""
@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument("--steps", type=int, default=5000, help="Number of simulation steps")
     parser.add_argument("--dt", type=float, default=0.0001, help="Timestep")
     parser.add_argument("--density", type=float, default=0.0006, help="Density of particles")
-    parser.add_argument("--n_particles", type=int, default=20, help="Number of particles")
+    parser.add_argument("--n_particles", type=int, default=1000, help="Number of particles")
     parser.add_argument("--use_pbc", action="store_true", help="Use periodic boundary conditions (PBC)")
     parser.add_argument("--temperature", type=float, default=298.0, help="Desired temperature (K)")
     parser.add_argument("--sigma", type=float, default=1.0, help="Lennard-Jones sigma parameter")
@@ -52,6 +52,7 @@ def parse_args():
     parser.add_argument("--minimize", action="store_true", help="Perform LJ simulation and then minimize energy")
     parser.add_argument("--minimization_steps", type=int, default=10000, help="Number of minimization steps")
     parser.add_argument("--use_lca", action="store_true", help="Use Linked Cell Algorithm (LCA)")
+    parser.add_argument("--use_jit", action="store_true", help="Use Just-In-Time (JIT) optimization")
 
     args = parser.parse_args()
 
@@ -71,7 +72,6 @@ def parse_args():
     if args.rcutoff <= 2.0 * args.sigma:
         print("Warning: Cutoff radius (rcutoff) should typically be greater than 2 * sigma for good accuracy.")
 
-    # Automatically set output_dir if not provided
     output_dir = "output"
     os.makedirs(output_dir, exist_ok=True)  # Ensure directory exists
 
@@ -90,4 +90,5 @@ def parse_args():
         args.minimize,
         args.minimization_steps,
         args.use_lca,
+        args.use_jit
     )

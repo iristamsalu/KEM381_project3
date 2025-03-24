@@ -2,8 +2,9 @@ import numpy as np
 import time
 import os
 from config import Configuration
-from forces import compute_forces_lca, compute_forces_naive
 from output_and_plots import save_xyz, track_comp_time
+from forces import compute_forces_lca, compute_forces_naive
+from forces_jit import compute_forces_lca_jit, compute_forces_naive_jit
 
 class Simulation:
     def __init__(self, config: Configuration):
@@ -24,6 +25,7 @@ class Simulation:
         self.minimize = config.minimize
         self.minimization_steps = config.minimization_steps
         self.use_lca = config.use_lca
+        self.use_jit = config.use_jit
 
         # Derive box size and initial lattice
         self.box_size = self.compute_box_size()
@@ -32,10 +34,14 @@ class Simulation:
         self.velocities, self.kinetic_energy = self.initialize_velocities()
         
         # Choose the force computation method for the simulation
-        if self.use_lca:
+        if not self.use_lca and not self.use_jit:
+            self.compute_forces = compute_forces_naive
+        elif not self.use_lca and self.use_jit:
+            self.compute_forces = compute_forces_naive_jit
+        elif self.use_lca and not self.use_jit:
             self.compute_forces = compute_forces_lca
         else:
-            self.compute_forces = compute_forces_naive
+            self.compute_forces = compute_forces_lca_jit
 
         # Initialize forces and potential energy using the chosen method
         self.forces, self.potential_energy = self.compute_forces(

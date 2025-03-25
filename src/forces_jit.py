@@ -61,24 +61,24 @@ def build_linked_cells(positions, box_size, rcutoff):
     # Divide box into number of cells per dimension
     lc = max(1, int(np.floor(box_size / rcutoff)))
     lc_dim = [lc] * dim
-    lc_dim = np.array(lc_dim, dtype=np.int64)  # Explicitly create a NumPy array
+    lc_dim = np.array(lc_dim, dtype=np.int64)
     rc = box_size / lc  # cell size
 
     EMPTY = -1
 
     if dim == 2:
         lc_xy = lc_dim[0] * lc_dim[1]
-        head = np.full(lc_xy, EMPTY, dtype=np.int64)  # Use NumPy array
+        head = np.full(lc_xy, EMPTY, dtype=np.int64)
     else:
         lc_yz = lc_dim[1] * lc_dim[2]
         lc_xyz = lc_dim[0] * lc_yz
-        head = np.full(lc_xyz, EMPTY, dtype=np.int64)  # Use NumPy array
-    lscl = np.full(n_particles, EMPTY, dtype=np.int64)  # Use NumPy array
+        head = np.full(lc_xyz, EMPTY, dtype=np.int64)
+    lscl = np.full(n_particles, EMPTY, dtype=np.int64)
 
     for i in range(n_particles):
         # Determine cell index vector (e.g., [x_idx, y_idx, z_idx]) based on particle's positions
-        mc = (positions[i] / rc).astype(np.int64)  # NumPy array operation
-        mc = np.minimum(np.maximum(0, mc), lc_dim - 1)  # NumPy array operations
+        mc = (positions[i] / rc).astype(np.int64)
+        mc = np.minimum(np.maximum(0, mc), lc_dim - 1)
 
         # Convert the 2D or 3D cell index vector (mc) to a scalar (1D) index for accessing the 'head' array
         if dim == 2:
@@ -97,19 +97,25 @@ def compute_forces_lca_jit(positions, box_size, rcutoff, sigma, epsilon, use_pbc
     """
     Compute Lennard-Jones forces and potential energy using the linked-cell algorithm (2D or 3D).
     """
-    n_particles, dim = positions.shape
+    _, dim = positions.shape
     head, lscl, lc_dim = build_linked_cells(positions, box_size, rcutoff)
 
     forces = np.zeros_like(positions)
     potential_energy = 0.0
     EMPTY = -1
 
-    # Precompute neighbor offsets for both 2D and 3D cases
+    # Neighbor offsets for both 2D and 3D cases
     if dim == 2:
         neighbor_offsets = np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1],
                                      [1, -1], [1, 0], [1, 1]], dtype=np.int64)
     else:
-        neighbor_offsets = np.array([[-1, -1, -1], [-1, -1, 0], [-1, -1, 1], [-1, 0, -1], [-1, 0, 0], [-1, 0, 1], [-1, 1, -1], [-1, 1, 0], [-1, 1, 1], [0, -1, -1], [0, -1, 0], [0, -1, 1], [0, 0, -1], [0, 0, 0], [0, 0, 1], [0, 1, -1], [0, 1, 0], [0, 1, 1], [1, -1, -1], [1, -1, 0], [1, -1, 1], [1, 0, -1], [1, 0, 0], [1, 0, 1], [1, 1, -1], [1, 1, 0], [1, 1, 1]], dtype=np.int64)
+        neighbor_offsets = np.array([[-1, -1, -1], [-1, -1, 0], [-1, -1, 1], [-1, 0, -1], 
+                                     [-1, 0, 0], [-1, 0, 1], [-1, 1, -1], [-1, 1, 0], 
+                                     [-1, 1, 1], [0, -1, -1], [0, -1, 0], [0, -1, 1], 
+                                     [0, 0, -1], [0, 0, 0], [0, 0, 1], [0, 1, -1], 
+                                     [0, 1, 0], [0, 1, 1], [1, -1, -1], [1, -1, 0], 
+                                     [1, -1, 1], [1, 0, -1], [1, 0, 0], [1, 0, 1], 
+                                     [1, 1, -1], [1, 1, 0], [1, 1, 1]], dtype=np.int64)
 
     # Iterate over cells
     if dim == 2:

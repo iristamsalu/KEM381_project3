@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument("--dimensions", type=int, choices=[2, 3], default=2, help="Dimension of simulation (2 or 3)")
     parser.add_argument("--steps", type=int, default=5000, help="Number of simulation steps")
     parser.add_argument("--dt", type=float, default=0.0001, help="Timestep")
-    parser.add_argument("--density", type=float, default=0.0006, help="Density of particles")
+    parser.add_argument("--density", type=float, default=0.8, help="Density of particles")
     parser.add_argument("--n_particles", type=int, default=1000, help="Number of particles")
     parser.add_argument("--use_pbc", action="store_true", help="Use periodic boundary conditions (PBC)")
     parser.add_argument("--temperature", type=float, default=298.0, help="Desired temperature (K)")
@@ -73,7 +73,8 @@ def parse_args():
         print("Warning: Cutoff radius (rcutoff) should typically be greater than 2 * sigma for good accuracy.")
 
     output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)  # Ensure directory exists
+    # Ensure directory exists
+    os.makedirs(output_dir, exist_ok=True)  
 
     return Configuration(
         args.dimensions,

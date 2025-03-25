@@ -169,13 +169,18 @@ class Simulation:
                     f"Potential Energy: {potential_energy:12.2f} | "
                     f"Kinetic Energy: {kinetic_energy:12.2f}"
                 )
-
+        # Print final values
+        print(
+            f"Step: {self.steps:10d} | "
+            f"Total Energy: {total_energy:12.2f} | "
+            f"Potential Energy: {potential_energy:12.2f} | "
+            f"Kinetic Energy: {kinetic_energy:12.2f}")
+        
         # End tracking computational time
         end_time = time.time()
         # Call track_comp_time to log the computational time data and simulation parameters
         track_comp_time(start_time, end_time, self.steps, self.config)
-
-        # Return collected data
+            
         return time_steps, kinetic_energies, potential_energies, total_energies
 
     def minimize_energy(self):

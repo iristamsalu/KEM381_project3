@@ -5,7 +5,6 @@ import numpy as np
 
 def plot_energy(all_time_steps, all_kinetic_energies, all_potential_energies, all_total_energies, plot_title, output_dir="output"):
     """Plot energy over time and save the figure to the specified output directory."""
-
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
@@ -48,7 +47,6 @@ def save_xyz(positions, filename, step):
 
 def save_energy_data(all_time_steps, all_kinetic_energies, all_potential_energies, all_total_energies, output_dir="output"):
     """Save energy values and timesteps to a .dat file in the specified output directory."""
-
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
@@ -73,7 +71,6 @@ def save_energy_data(all_time_steps, all_kinetic_energies, all_potential_energie
 
 def track_comp_time(start_time, end_time, steps, config, output_file="computational_times.dat"):
     """Track computational time and append to output file in the specified output directory."""
-
     total_simulation_time = end_time - start_time
     avg_time_per_step = total_simulation_time / steps
 
@@ -93,7 +90,7 @@ def track_comp_time(start_time, end_time, steps, config, output_file="computatio
                 f"time: {total_simulation_time:.6f}s, avg/step: {avg_time_per_step:.6f}s, "
                 f"dim: {config.dimensions}D, "
                 f"N: {config.n_particles}, density: {config.density}, steps: {config.steps}, " 
-                f"dt: {config.dt}, PBC: {config.use_pbc}, LCA: {config.use_lca}, "
+                f"dt: {config.dt}, PBC: {config.use_pbc}, LCA: {config.use_lca}, JIT: {config.use_jit}, "
                 f"rcut: {config.rcutoff}, sigma: {config.sigma}, "
                 f"eps: {config.epsilon}, temp: {config.temperature}\n")
 

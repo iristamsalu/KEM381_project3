@@ -21,7 +21,7 @@ Provides simulate_LJ() for full dynamics and minimize_energy() for energy minimi
 - **config.py**: Parses and validates command-line arguments, and stores simulation parameters in a structured Configuration dataclass.
 - **plotting.py**: Handles visualization and trajectory saving.
 - **requirements.txt**: A list of packages and libraries needed to run the programs.
-- **forces_parallel.py***: Has same functins as forces_jit.py but with parallel computing. To use this module, replace the content of forces_jit.py with forces_parallel.py content (name has to be forces_jit.py or running) and run with the flag --use_jit. The module is not tested.
+- **forces_parallel.py***: Has same functions as forces_jit.py but uses parallel computing. To use this module, replace the content of forces_jit.py with forces_parallel.py content (name has to be forces_jit.py for running) and run with the flag --use_jit. The module is not tested.
 
 ### Installing Requirements
 To install the necessary requirements in a virtual environment, use the following command:
